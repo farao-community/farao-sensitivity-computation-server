@@ -21,7 +21,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.*;
 import java.net.URI;
@@ -48,8 +48,13 @@ public class SensitivityComputationClient implements SensitivityComputation {
 
     @Override
     public CompletableFuture<SensitivityComputationResults> run(SensitivityFactorsProvider factorsProvider, ContingenciesProvider contingenciesProvider, String workingStateId, SensitivityComputationParameters sensiParameters) {
-        RestTemplate restTemplate = new RestTemplate();
-        byte[] resultBytes = restTemplate.postForObject(getServerUri(), createBody(workingStateId, factorsProvider, contingenciesProvider, sensiParameters), byte[].class);
+        WebClient webClient = WebClient.create();
+        byte[] resultBytes = webClient.post()
+                .uri(getServerUri())
+                .bodyValue(createBody(workingStateId, factorsProvider, contingenciesProvider, sensiParameters))
+                .retrieve()
+                .bodyToMono(byte[].class)
+                .block();
         return CompletableFuture.completedFuture(parseResults(resultBytes));
     }
 
@@ -75,7 +80,7 @@ public class SensitivityComputationClient implements SensitivityComputation {
 
     private URI getServerUri() {
         return URI.create(config.getBaseUrl())
-                .resolve("/api/v1/sensitivity-computation");
+                .resolve("./api/v1/sensitivity-computation");
     }
 
     private MultiValueMap<String, HttpEntity<?>> createBody(String workingStateId, SensitivityFactorsProvider factorsProvider, ContingenciesProvider contingenciesProvider, SensitivityComputationParameters sensiParameters) {
