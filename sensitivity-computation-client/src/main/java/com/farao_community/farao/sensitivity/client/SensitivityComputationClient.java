@@ -17,11 +17,14 @@ import com.powsybl.sensitivity.*;
 import com.powsybl.sensitivity.json.JsonSensitivityComputationParameters;
 import com.powsybl.sensitivity.json.SensitivityComputationResultJsonSerializer;
 import com.powsybl.sensitivity.json.SensitivityFactorsJsonSerializer;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 
 import java.io.*;
 import java.net.URI;
@@ -49,13 +52,13 @@ public class SensitivityComputationClient implements SensitivityComputation {
     @Override
     public CompletableFuture<SensitivityComputationResults> run(SensitivityFactorsProvider factorsProvider, ContingenciesProvider contingenciesProvider, String workingStateId, SensitivityComputationParameters sensiParameters) {
         WebClient webClient = WebClient.create();
-        byte[] resultBytes = webClient.post()
+        Flux<DataBuffer> resultData = webClient.post()
                 .uri(getServerUri())
                 .bodyValue(createBody(workingStateId, factorsProvider, contingenciesProvider, sensiParameters))
                 .retrieve()
-                .bodyToMono(byte[].class)
-                .block();
-        return CompletableFuture.completedFuture(parseResults(resultBytes));
+                .bodyToFlux(DataBuffer.class);
+
+        return CompletableFuture.completedFuture(parseResults(resultData));
     }
 
     @Override
@@ -68,10 +71,9 @@ public class SensitivityComputationClient implements SensitivityComputation {
         return "0.0.1";
     }
 
-    private SensitivityComputationResults parseResults(byte[] resultBytes) {
+    private SensitivityComputationResults parseResults(Flux<DataBuffer> resultBytes) {
         try {
-            ByteArrayInputStream inputStream = new ByteArrayInputStream(resultBytes);
-            Reader reader = new InputStreamReader(inputStream);
+            Reader reader = new InputStreamReader(DataBufferUtils.join(resultBytes).block().asInputStream());
             return SensitivityComputationResultJsonSerializer.read(reader);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
