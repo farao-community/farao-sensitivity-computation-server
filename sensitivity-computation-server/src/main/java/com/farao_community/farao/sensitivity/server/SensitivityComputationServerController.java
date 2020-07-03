@@ -6,11 +6,14 @@
  */
 package com.farao_community.farao.sensitivity.server;
 
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * @author Sebastien Murgey {@literal <sebastien.murgey@rte-france.com>}
@@ -25,10 +28,10 @@ public class SensitivityComputationServerController {
     }
 
     @PostMapping
-    public ResponseEntity<byte[]> runComputation(MultipartFile networkFile,
-                                                 MultipartFile sensitivityFactorsFile,
-                                                 MultipartFile contingencyListFile,
-                                                 MultipartFile parametersFile) {
-        return ResponseEntity.ok(service.runComputation(networkFile, sensitivityFactorsFile, contingencyListFile, parametersFile));
+    public Mono<ResponseEntity<Flux<DataBuffer>>> runComputation(FilePart networkFile,
+                                                                 FilePart sensitivityFactorsFile,
+                                                                 FilePart contingencyListFile,
+                                                                 FilePart parametersFile) {
+        return Mono.just(ResponseEntity.ok(service.runComputation(networkFile, sensitivityFactorsFile, contingencyListFile, parametersFile)));
     }
 }

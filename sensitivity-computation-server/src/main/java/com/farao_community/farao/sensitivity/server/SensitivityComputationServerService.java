@@ -18,8 +18,12 @@ import com.powsybl.iidm.network.Network;
 import com.powsybl.sensitivity.*;
 import com.powsybl.sensitivity.converter.SensitivityComputationResultExporters;
 import com.powsybl.sensitivity.json.JsonSensitivityComputationParameters;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Flux;
 
 import java.io.*;
 import java.util.List;
@@ -29,7 +33,7 @@ import java.util.List;
  */
 @Service
 public class SensitivityComputationServerService {
-    public byte[] runComputation(MultipartFile networkFile, MultipartFile sensitivityFactorsFile, MultipartFile contingencyListFile, MultipartFile parametersFile) {
+    public Flux<DataBuffer> runComputation(FilePart networkFile, FilePart sensitivityFactorsFile, FilePart contingencyListFile, FilePart parametersFile) {
         Network network = importNetwork(networkFile);
         SensitivityFactorsProvider sensitivityFactorsProvider = importSensitivityFactorsProvider(sensitivityFactorsFile);
         ContingenciesProvider contingencies = importContingenciesProvider(contingencyListFile);
@@ -37,56 +41,50 @@ public class SensitivityComputationServerService {
 
         SensitivityComputationFactory sensitivityComputationFactory = ComponentDefaultConfig.load().newFactoryImpl(SensitivityComputationFactory.class);
         SensitivityComputation sensitivityComputation = sensitivityComputationFactory.create(network, DefaultComputationManagerConfig.load().createLongTimeExecutionComputationManager(), 1);
-        return sensitivityComputation.run(sensitivityFactorsProvider, contingencies, network.getVariantManager().getWorkingVariantId(), parameters)
-                .thenApply(this::turnToBytes).join();
+        return sensitivityComputation.run(sensitivityFactorsProvider, contingencies, network.getVariantManager().getWorkingVariantId(), parameters).thenApply(this::turnToData).join();
     }
 
-    private Network importNetwork(MultipartFile networkFile) {
-        try {
-            return Importers.loadNetwork(networkFile.getOriginalFilename(), networkFile.getInputStream());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    private Network importNetwork(FilePart networkFile) {
+        return DataBufferUtils.join(networkFile.content())
+                .map(dataBuffer -> Importers.loadNetwork(networkFile.filename(), dataBuffer.asInputStream())).toFuture().join();
     }
 
-    private SensitivityFactorsProvider importSensitivityFactorsProvider(MultipartFile sensitivityFactorsFile) {
-        try {
-            JsonSensitivityFactorsProviderFactory factory = new JsonSensitivityFactorsProviderFactory();
-            return factory.create(sensitivityFactorsFile.getInputStream());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    private SensitivityFactorsProvider importSensitivityFactorsProvider(FilePart sensitivityFactorsFile) {
+        JsonSensitivityFactorsProviderFactory factory = new JsonSensitivityFactorsProviderFactory();
+        return DataBufferUtils.join(sensitivityFactorsFile.content())
+                .map(dataBuffer -> factory.create(dataBuffer.asInputStream())).toFuture().join();
     }
 
-    private ContingenciesProvider importContingenciesProvider(MultipartFile contingencyListFile) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new ContingencyJsonModule());
-            TypeReference<List<Contingency>> mapType = new TypeReference<List<Contingency>>() {};
-            List<Contingency> contingencyList = mapper.readValue(contingencyListFile.getInputStream(), mapType);
-            return new ContingenciesProvider() {
-                @Override
-                public List<Contingency> getContingencies(Network network) {
-                    return contingencyList;
-                }
-            };
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    private ContingenciesProvider importContingenciesProvider(FilePart contingencyListFile) {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new ContingencyJsonModule());
+        TypeReference<List<Contingency>> mapType = new TypeReference<List<Contingency>>() {};
+        List<Contingency> contingencyList = DataBufferUtils.join(contingencyListFile.content())
+                .map(dataBuffer -> {
+                    try {
+                        return mapper.readValue(dataBuffer.asInputStream(), mapType);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                })
+                .toFuture().join();
+        return new ContingenciesProvider() {
+            @Override
+            public List<Contingency> getContingencies(Network network) {
+                return contingencyList;
+            }
+        };
     }
 
-    private SensitivityComputationParameters importParameters(MultipartFile parametersFile) {
-        try {
-            return JsonSensitivityComputationParameters.read(parametersFile.getInputStream());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    private SensitivityComputationParameters importParameters(FilePart parametersFile) {
+        return DataBufferUtils.join(parametersFile.content())
+                .map(dataBuffer -> JsonSensitivityComputationParameters.read(dataBuffer.asInputStream())).toFuture().join();
     }
 
-    private byte[] turnToBytes(SensitivityComputationResults sensitivityComputationResults) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        Writer writer = new OutputStreamWriter(baos);
+    private Flux<DataBuffer> turnToData(SensitivityComputationResults sensitivityComputationResults) {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        Writer writer = new OutputStreamWriter(byteArrayOutputStream);
         SensitivityComputationResultExporters.export(sensitivityComputationResults, writer, "JSON");
-        return baos.toByteArray();
+        return DataBufferUtils.readInputStream(() -> new ByteArrayInputStream(byteArrayOutputStream.toByteArray()), new DefaultDataBufferFactory(), 1024);
     }
 }

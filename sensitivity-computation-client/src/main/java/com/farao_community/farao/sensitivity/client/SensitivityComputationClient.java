@@ -71,9 +71,9 @@ public class SensitivityComputationClient implements SensitivityComputation {
         return "0.0.1";
     }
 
-    private SensitivityComputationResults parseResults(Flux<DataBuffer> resultBytes) {
+    private SensitivityComputationResults parseResults(Flux<DataBuffer> resultData) {
         try {
-            Reader reader = new InputStreamReader(DataBufferUtils.join(resultBytes).block().asInputStream());
+            Reader reader = new InputStreamReader(DataBufferUtils.join(resultData).block().asInputStream());
             return SensitivityComputationResultJsonSerializer.read(reader);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
