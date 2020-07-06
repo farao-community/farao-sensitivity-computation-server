@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.farao-community</groupId>
+        <groupId>com.farao-community.farao</groupId>
         <artifactId>farao-sensitivity-computation-app</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
