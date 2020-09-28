@@ -2,7 +2,7 @@ componentDefaultConfig:
   SensitivityComputationFactory: com.rte_france.powsybl.hades2.sensitivity.Hades2SensitivityFactory
 
 hades2:
-  homeDir: /home/farao/farao-dep/runtime/hades2
+  homeDir: /root/farao-dep/runtime/hades2
   timeout: -1
   debug: false
 

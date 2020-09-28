@@ -22,7 +22,7 @@
                         <artifactId>jib-maven-plugin</artifactId>
                         <configuration>
                             <from>
-                                <image>farao/hades2-base:6.4.0.1.1</image>
+                                <image>farao/farao-computation-base:1.0.0-jdk11</image>
                             </from>
                             <to>
                                 <image>farao/sensitivity-computation-server</image>
