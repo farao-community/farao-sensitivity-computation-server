@@ -8,16 +8,14 @@ package com.farao_community.farao.sensitivity.server;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.powsybl.commons.config.ComponentDefaultConfig;
-import com.powsybl.computation.DefaultComputationManagerConfig;
 import com.powsybl.contingency.ContingenciesProvider;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.contingency.json.ContingencyJsonModule;
 import com.powsybl.iidm.import_.Importers;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.sensitivity.*;
-import com.powsybl.sensitivity.converter.SensitivityComputationResultExporters;
-import com.powsybl.sensitivity.json.JsonSensitivityComputationParameters;
+import com.powsybl.sensitivity.converter.SensitivityAnalysisResultExporters;
+import com.powsybl.sensitivity.json.JsonSensitivityAnalysisParameters;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
@@ -37,11 +35,10 @@ public class SensitivityComputationServerService {
         Network network = importNetwork(networkFile);
         SensitivityFactorsProvider sensitivityFactorsProvider = importSensitivityFactorsProvider(sensitivityFactorsFile);
         ContingenciesProvider contingencies = importContingenciesProvider(contingencyListFile);
-        SensitivityComputationParameters parameters = importParameters(parametersFile);
+        SensitivityAnalysisParameters parameters = importParameters(parametersFile);
 
-        SensitivityComputationFactory sensitivityComputationFactory = ComponentDefaultConfig.load().newFactoryImpl(SensitivityComputationFactory.class);
-        SensitivityComputation sensitivityComputation = sensitivityComputationFactory.create(network, DefaultComputationManagerConfig.load().createLongTimeExecutionComputationManager(), 1);
-        return sensitivityComputation.run(sensitivityFactorsProvider, contingencies, network.getVariantManager().getWorkingVariantId(), parameters).thenApply(this::turnToData).join();
+        SensitivityAnalysisResult result = SensitivityAnalysis.run(network, sensitivityFactorsProvider, contingencies, parameters);
+        return turnToData(result);
     }
 
     private Network importNetwork(FilePart networkFile) {
@@ -76,15 +73,15 @@ public class SensitivityComputationServerService {
         };
     }
 
-    private SensitivityComputationParameters importParameters(FilePart parametersFile) {
+    private SensitivityAnalysisParameters importParameters(FilePart parametersFile) {
         return DataBufferUtils.join(parametersFile.content())
-                .map(dataBuffer -> JsonSensitivityComputationParameters.read(dataBuffer.asInputStream())).toFuture().join();
+                .map(dataBuffer -> JsonSensitivityAnalysisParameters.read(dataBuffer.asInputStream())).toFuture().join();
     }
 
-    private Flux<DataBuffer> turnToData(SensitivityComputationResults sensitivityComputationResults) {
+    private Flux<DataBuffer> turnToData(SensitivityAnalysisResult sensitivityComputationResults) {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         Writer writer = new OutputStreamWriter(byteArrayOutputStream);
-        SensitivityComputationResultExporters.export(sensitivityComputationResults, writer, "JSON");
+        SensitivityAnalysisResultExporters.export(sensitivityComputationResults, writer, "JSON");
         return DataBufferUtils.readInputStream(() -> new ByteArrayInputStream(byteArrayOutputStream.toByteArray()), new DefaultDataBufferFactory(), 1024);
     }
 }

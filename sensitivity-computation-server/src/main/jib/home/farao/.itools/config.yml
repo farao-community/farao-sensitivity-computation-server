@@ -1,0 +1,20 @@
+sensitivity-analysis:
+  default-impl-name: Sensi2
+
+hades2:
+  homeDir: /home/farao/farao-dep/runtime/hades2
+  timeout: -1
+  debug: false
+
+hades2-default-parameters:
+  dcMode: true
+  balanceType: PROPORTIONAL_TO_LOAD
+  countriesToBalance: AL,AT,BA,BE,BG,CH,CZ,DE,ES,FR,GR,HR,HU,IT,ME,MK,NL,PL,PT,RO,RS,SI,SK,TR,UA
+
+hades2-default-sensitivity-parameters:
+  computeInitialLoadflow: true
+  computeSensitivityToPsts: true
+  computeSensitivityToInjections: true
+  equationTypePst: ANGLE_SHIFT_EQ
+  resultsThreshold: -1
+  hubPtdf: -1
