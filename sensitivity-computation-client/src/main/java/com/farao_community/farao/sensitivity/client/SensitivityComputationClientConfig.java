@@ -18,16 +18,16 @@ public class SensitivityComputationClientConfig {
     private static final String DEFAULT_BASE_URL = "http://localhost:8080/";
     private final String baseUrl;
 
-    public SensitivityComputationClientConfig(String baseUrl) {
+    private SensitivityComputationClientConfig(String baseUrl) {
         this.baseUrl = baseUrl;
     }
 
-    public SensitivityComputationClientConfig() {
-        this(DEFAULT_BASE_URL);
+    public static SensitivityComputationClientConfig fromPropertyFile() {
+        return fromPlatformConfig(PlatformConfig.defaultConfig());
     }
 
-    public static SensitivityComputationClientConfig load() {
-        Optional<ModuleConfig> moduleConfig = PlatformConfig.defaultConfig()
+    public static SensitivityComputationClientConfig fromPlatformConfig(PlatformConfig platformConfig) {
+        Optional<ModuleConfig> moduleConfig = platformConfig
                 .getOptionalModuleConfig("sensitivity-computation-client");
         String baseUrl = moduleConfig.flatMap(mc -> mc.getOptionalStringProperty("base-url")).orElse(DEFAULT_BASE_URL);
         return new SensitivityComputationClientConfig(baseUrl);

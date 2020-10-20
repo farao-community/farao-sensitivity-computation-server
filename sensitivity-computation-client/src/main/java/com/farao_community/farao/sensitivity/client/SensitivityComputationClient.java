@@ -7,15 +7,17 @@
 package com.farao_community.farao.sensitivity.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.auto.service.AutoService;
 import com.powsybl.commons.json.JsonUtil;
+import com.powsybl.computation.ComputationManager;
 import com.powsybl.contingency.ContingenciesProvider;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.contingency.json.ContingencyJsonModule;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.xml.NetworkXml;
 import com.powsybl.sensitivity.*;
-import com.powsybl.sensitivity.json.JsonSensitivityComputationParameters;
-import com.powsybl.sensitivity.json.SensitivityComputationResultJsonSerializer;
+import com.powsybl.sensitivity.json.JsonSensitivityAnalysisParameters;
+import com.powsybl.sensitivity.json.SensitivityAnalysisResultJsonSerializer;
 import com.powsybl.sensitivity.json.SensitivityFactorsJsonSerializer;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -35,26 +37,24 @@ import java.util.concurrent.CompletableFuture;
 /**
  * @author Sebastien Murgey {@literal <sebastien.murgey@rte-france.com>}
  */
-public class SensitivityComputationClient implements SensitivityComputation {
+@AutoService(SensitivityAnalysisProvider.class)
+public class SensitivityComputationClient implements SensitivityAnalysisProvider {
     private final SensitivityComputationClientConfig config;
-    private final Network network;
 
-    SensitivityComputationClient(Network network, SensitivityComputationClientConfig config) {
-        this.network = network;
+    public SensitivityComputationClient() {
+        this(SensitivityComputationClientConfig.fromPropertyFile());
+    }
+
+    public SensitivityComputationClient(SensitivityComputationClientConfig config) {
         this.config = config;
     }
 
     @Override
-    public CompletableFuture<SensitivityComputationResults> run(SensitivityFactorsProvider sensitivityFactorsProvider, String workingStateId, SensitivityComputationParameters sensitivityComputationParameters) {
-        return run(sensitivityFactorsProvider, null, workingStateId, sensitivityComputationParameters);
-    }
-
-    @Override
-    public CompletableFuture<SensitivityComputationResults> run(SensitivityFactorsProvider factorsProvider, ContingenciesProvider contingenciesProvider, String workingStateId, SensitivityComputationParameters sensiParameters) {
+    public CompletableFuture<SensitivityAnalysisResult> run(Network network, String workingVariantId, SensitivityFactorsProvider factorsProvider, ContingenciesProvider contingenciesProvider, SensitivityAnalysisParameters sensiParameters, ComputationManager computationManager) {
         WebClient webClient = WebClient.create();
         Flux<DataBuffer> resultData = webClient.post()
                 .uri(getServerUri())
-                .bodyValue(createBody(workingStateId, factorsProvider, contingenciesProvider, sensiParameters))
+                .bodyValue(createBody(network, workingVariantId, factorsProvider, contingenciesProvider, sensiParameters))
                 .retrieve()
                 .bodyToFlux(DataBuffer.class);
 
@@ -68,13 +68,13 @@ public class SensitivityComputationClient implements SensitivityComputation {
 
     @Override
     public String getVersion() {
-        return "0.0.1";
+        return "1.0.0";
     }
 
-    private SensitivityComputationResults parseResults(Flux<DataBuffer> resultData) {
+    private SensitivityAnalysisResult parseResults(Flux<DataBuffer> resultData) {
         try {
             Reader reader = new InputStreamReader(DataBufferUtils.join(resultData).block().asInputStream());
-            return SensitivityComputationResultJsonSerializer.read(reader);
+            return SensitivityAnalysisResultJsonSerializer.read(reader);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -85,11 +85,11 @@ public class SensitivityComputationClient implements SensitivityComputation {
                 .resolve("./api/v1/sensitivity-computation");
     }
 
-    private MultiValueMap<String, HttpEntity<?>> createBody(String workingStateId, SensitivityFactorsProvider factorsProvider, ContingenciesProvider contingenciesProvider, SensitivityComputationParameters sensiParameters) {
+    private MultiValueMap<String, HttpEntity<?>> createBody(Network network, String workingStateId, SensitivityFactorsProvider factorsProvider, ContingenciesProvider contingenciesProvider, SensitivityAnalysisParameters sensiParameters) {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("networkFile", getNetworkBytes(network, workingStateId), MediaType.APPLICATION_XML).filename("network.xiidm");
-        builder.part("sensitivityFactorsFile", getFactorsBytes(factorsProvider), MediaType.APPLICATION_JSON).filename("sensitivityFactors.json");
-        builder.part("contingencyListFile", getContingenciesBytes(contingenciesProvider), MediaType.APPLICATION_JSON).filename("contingencyList.json");
+        builder.part("sensitivityFactorsFile", getFactorsBytes(network, factorsProvider), MediaType.APPLICATION_JSON).filename("sensitivityFactors.json");
+        builder.part("contingencyListFile", getContingenciesBytes(network, contingenciesProvider), MediaType.APPLICATION_JSON).filename("contingencyList.json");
         builder.part("parametersFile", getParametersBytes(sensiParameters), MediaType.APPLICATION_JSON).filename("parameters.json");
         return builder.build();
     }
@@ -103,7 +103,7 @@ public class SensitivityComputationClient implements SensitivityComputation {
         return baos.toByteArray();
     }
 
-    private byte[] getFactorsBytes(SensitivityFactorsProvider factorsProvider) {
+    private byte[] getFactorsBytes(Network network, SensitivityFactorsProvider factorsProvider) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             Writer writer = new OutputStreamWriter(baos);
@@ -114,7 +114,7 @@ public class SensitivityComputationClient implements SensitivityComputation {
         }
     }
 
-    private byte[] getContingenciesBytes(ContingenciesProvider contingenciesProvider) {
+    private byte[] getContingenciesBytes(Network network, ContingenciesProvider contingenciesProvider) {
         try {
             List<Contingency> contingencies = contingenciesProvider == null ? Collections.emptyList() : contingenciesProvider.getContingencies(network);
             ObjectMapper mapper = JsonUtil.createObjectMapper();
@@ -125,9 +125,9 @@ public class SensitivityComputationClient implements SensitivityComputation {
         }
     }
 
-    private byte[] getParametersBytes(SensitivityComputationParameters sensiParameters) {
+    private byte[] getParametersBytes(SensitivityAnalysisParameters sensiParameters) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        JsonSensitivityComputationParameters.write(sensiParameters, baos);
+        JsonSensitivityAnalysisParameters.write(sensiParameters, baos);
         return baos.toByteArray();
     }
 }
