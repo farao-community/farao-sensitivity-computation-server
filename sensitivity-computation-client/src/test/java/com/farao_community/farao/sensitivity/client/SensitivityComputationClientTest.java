@@ -34,19 +34,29 @@ class SensitivityComputationClientTest {
     @Test
     public void checkThatClientsWorkLocally() {
         Network network = Importers.loadNetwork("20170215_0830_2d4_uc1.uct", getClass().getResourceAsStream("/20170215_0830_2d4_uc1.uct"));
-        SensitivityFactorsProvider sensitivityFactorsProvider = networkInput -> {
+
+        ContingenciesProvider contingenciesProvider = networkInput -> networkInput.getBranchStream().map(branch -> new Contingency(branch.getId(), new BranchContingency(branch.getId()))).collect(Collectors.toList());
+
+        SensitivityAnalysisResult result = SensitivityAnalysis.find("SensitivityComputationClient").run(network, new mockProvider(), contingenciesProvider.getContingencies(network));
+
+        System.out.println(result.isOk());
+    }
+
+    public class mockProvider implements SensitivityFactorsProvider {
+        @Override
+        public List<SensitivityFactor> getFactors(Network network) {
             List<SensitivityFactor> sensitivityFactors = new ArrayList<>();
-            for (Branch<?> branch : networkInput.getBranches()) {
-                for (Load load : networkInput.getLoads()) {
+            for (Branch<?> branch : network.getBranches()) {
+                for (Load load : network.getLoads()) {
                     sensitivityFactors.add(new BranchFlowPerInjectionIncrease(new BranchFlow(branch.getId(), branch.getId(), branch.getId()), new InjectionIncrease(load.getId(), load.getId(), load.getId())));
                 }
             }
             return sensitivityFactors;
-        };
-        ContingenciesProvider contingenciesProvider = networkInput -> networkInput.getBranchStream().map(branch -> new Contingency(branch.getId(), new BranchContingency(branch.getId()))).collect(Collectors.toList());
+        }
 
-        SensitivityAnalysisResult result = SensitivityAnalysis.find("SensitivityComputationClient").run(network, sensitivityFactorsProvider, contingenciesProvider);
-
-        System.out.println(result.isOk());
+        @Override
+        public List<SensitivityFactor> getFactors(Network network, String s) {
+            return getFactors(network);
+        }
     }
 }

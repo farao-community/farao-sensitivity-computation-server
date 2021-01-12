@@ -37,7 +37,7 @@ public class SensitivityComputationServerService {
         ContingenciesProvider contingencies = importContingenciesProvider(contingencyListFile);
         SensitivityAnalysisParameters parameters = importParameters(parametersFile);
 
-        SensitivityAnalysisResult result = SensitivityAnalysis.run(network, sensitivityFactorsProvider, contingencies, parameters);
+        SensitivityAnalysisResult result = SensitivityAnalysis.run(network, sensitivityFactorsProvider, contingencies.getContingencies(network), parameters);
         return turnToData(result);
     }
 
