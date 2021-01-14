@@ -36,7 +36,9 @@ import reactor.netty.tcp.TcpClient;
 import java.io.*;
 import java.net.URI;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -104,7 +106,7 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
     private MultiValueMap<String, HttpEntity<?>> createBody(Network network, String workingStateId, SensitivityFactorsProvider factorsProvider, List<Contingency> contingencies, SensitivityAnalysisParameters sensiParameters) {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("networkFile", getNetworkBytes(network, workingStateId), MediaType.APPLICATION_XML).filename("network.xiidm");
-        builder.part("sensitivityFactorsFile", getFactorsBytes(network, factorsProvider), MediaType.APPLICATION_JSON).filename("sensitivityFactors.json");
+        builder.part("sensitivityFactorsFile", getFactorsBytes(network, factorsProvider, contingencies), MediaType.APPLICATION_JSON).filename("sensitivityFactors.json");
         builder.part("contingencyListFile", getContingenciesBytes(contingencies), MediaType.APPLICATION_JSON).filename("contingencyList.json");
         builder.part("parametersFile", getParametersBytes(sensiParameters), MediaType.APPLICATION_JSON).filename("parameters.json");
         return builder.build();
@@ -119,11 +121,15 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
         return baos.toByteArray();
     }
 
-    private byte[] getFactorsBytes(Network network, SensitivityFactorsProvider factorsProvider) {
+    private byte[] getFactorsBytes(Network network, SensitivityFactorsProvider factorsProvider, List<Contingency> contingencies) {
         try {
+            Map<String, List<SensitivityFactor>> sensitivityFactorsMap = new HashMap<>();
+            for(Contingency contingency : contingencies) {
+                sensitivityFactorsMap.put(contingency.getId(), factorsProvider.getFactors(network, contingency.getId()));
+            }
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             Writer writer = new OutputStreamWriter(baos);
-            SensitivityFactorsJsonSerializer.write(factorsProvider.getFactors(network), writer);
+            SensitivityFactorsJsonSerializer.write(sensitivityFactorsMap, writer);
             return baos.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
