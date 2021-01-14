@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auto.service.AutoService;
 import com.powsybl.commons.json.JsonUtil;
 import com.powsybl.computation.ComputationManager;
-import com.powsybl.contingency.ContingenciesProvider;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.contingency.json.ContingencyJsonModule;
 import com.powsybl.iidm.network.Network;
@@ -19,18 +18,24 @@ import com.powsybl.sensitivity.*;
 import com.powsybl.sensitivity.json.JsonSensitivityAnalysisParameters;
 import com.powsybl.sensitivity.json.SensitivityAnalysisResultJsonSerializer;
 import com.powsybl.sensitivity.json.SensitivityFactorsJsonSerializer;
+import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
+import reactor.netty.http.client.HttpClient;
+import reactor.netty.tcp.TcpClient;
 
 import java.io.*;
 import java.net.URI;
-import java.util.Collections;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -51,12 +56,23 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
 
     @Override
     public CompletableFuture<SensitivityAnalysisResult> run(Network network, String workingVariantId, SensitivityFactorsProvider factorsProvider, List<Contingency> contingencies, SensitivityAnalysisParameters sensiParameters, ComputationManager computationManager) {
-        WebClient webClient = WebClient.create();
+        TcpClient timeoutClient = TcpClient.create()
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getTimeOutInSeconds()*1000)
+            .doOnConnected(
+                c -> c.addHandlerLast(new ReadTimeoutHandler(config.getTimeOutInSeconds()*1000))
+                    .addHandlerLast(new WriteTimeoutHandler(config.getTimeOutInSeconds()*1000)));
+
+        WebClient webClient = WebClient.builder()
+            .clientConnector(new ReactorClientHttpConnector(HttpClient.from(timeoutClient)))
+            .build();
+
+        //WebClient webClient = WebClient.create();
         Flux<DataBuffer> resultData = webClient.post()
                 .uri(getServerUri())
                 .bodyValue(createBody(network, workingVariantId, factorsProvider, contingencies, sensiParameters))
                 .retrieve()
-                .bodyToFlux(DataBuffer.class);
+                .bodyToFlux(DataBuffer.class)
+                .timeout(Duration.ofMillis(config.getTimeOutInSeconds()*1000));
 
         return CompletableFuture.completedFuture(parseResults(resultData));
     }

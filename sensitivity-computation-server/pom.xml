@@ -29,10 +29,19 @@
                                 <tags>${project.version}</tags>
                             </to>
                             <container>
-                                <jvmFlags>-Xms1g,-Xmx4g</jvmFlags>
+                                <jvmFlags>-Xms2g,-Xmx8g</jvmFlags>
                                 <ports>
                                     <port>8080</port>
                                 </ports>
+                                <!--
+                                for user permission reasons, it is forced to use root user
+                                for running the spring boot app.
+                                -->
+                                <user>root</user>
+                                <volumes>
+                                    <volume>/root/sensitivity-computation-server</volume>
+                                </volumes>
+                                <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
                             </container>
                         </configuration>
                     </plugin>
@@ -56,9 +65,13 @@
         </dependency>
 
         <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
             <groupId>com.powsybl</groupId>
             <artifactId>powsybl-config-classic</artifactId>
-            <version>${powsybl.core.version}</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>

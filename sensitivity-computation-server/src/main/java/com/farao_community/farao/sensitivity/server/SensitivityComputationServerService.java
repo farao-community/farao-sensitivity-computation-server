@@ -16,6 +16,8 @@ import com.powsybl.iidm.network.Network;
 import com.powsybl.sensitivity.*;
 import com.powsybl.sensitivity.converter.SensitivityAnalysisResultExporters;
 import com.powsybl.sensitivity.json.JsonSensitivityAnalysisParameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
@@ -31,13 +33,17 @@ import java.util.List;
  */
 @Service
 public class SensitivityComputationServerService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SensitivityComputationServerService.class);
+
     public Flux<DataBuffer> runComputation(FilePart networkFile, FilePart sensitivityFactorsFile, FilePart contingencyListFile, FilePart parametersFile) {
+        LOGGER.info("[start] sensitivity computation");
         Network network = importNetwork(networkFile);
         SensitivityFactorsProvider sensitivityFactorsProvider = importSensitivityFactorsProvider(sensitivityFactorsFile);
         ContingenciesProvider contingencies = importContingenciesProvider(contingencyListFile);
         SensitivityAnalysisParameters parameters = importParameters(parametersFile);
 
         SensitivityAnalysisResult result = SensitivityAnalysis.run(network, sensitivityFactorsProvider, contingencies.getContingencies(network), parameters);
+        LOGGER.info("[end] sensitivity computation");
         return turnToData(result);
     }
 
