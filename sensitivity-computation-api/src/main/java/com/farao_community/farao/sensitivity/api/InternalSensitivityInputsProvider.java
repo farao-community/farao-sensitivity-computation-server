@@ -7,6 +7,7 @@
 package com.farao_community.farao.sensitivity.api;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.sensitivity.SensitivityFactor;
@@ -16,16 +17,20 @@ import java.util.List;
 import java.util.Map;
 
 public class InternalSensitivityInputsProvider implements SensitivityFactorsProvider {
+    @JsonProperty("commonFactors")
     private final List<SensitivityFactor> commonFactors;
+    @JsonProperty("basecaseAdditionalFactors")
     private final List<SensitivityFactor> basecaseAdditionalFactors;
+    @JsonProperty("contingenciesAdditionalParameters")
     private final Map<String, List<SensitivityFactor>> contingenciesAdditionalParameters;
+    @JsonProperty("contingencies")
     private final List<Contingency> contingencies;
 
     @JsonCreator
-    public InternalSensitivityInputsProvider(List<SensitivityFactor> commonFactors,
-                                             List<SensitivityFactor> basecaseAdditionalFactors,
-                                             Map<String, List<SensitivityFactor>> contingenciesAdditionalParameters,
-                                             List<Contingency> contingencies) {
+    public InternalSensitivityInputsProvider(@JsonProperty("commonFactors") List<SensitivityFactor> commonFactors,
+                                             @JsonProperty("basecaseAdditionalFactors") List<SensitivityFactor> basecaseAdditionalFactors,
+                                             @JsonProperty("contingenciesAdditionalParameters") Map<String, List<SensitivityFactor>> contingenciesAdditionalParameters,
+                                             @JsonProperty("contingencies") List<Contingency> contingencies) {
         this.commonFactors = commonFactors;
         this.basecaseAdditionalFactors = basecaseAdditionalFactors;
         this.contingenciesAdditionalParameters = contingenciesAdditionalParameters;

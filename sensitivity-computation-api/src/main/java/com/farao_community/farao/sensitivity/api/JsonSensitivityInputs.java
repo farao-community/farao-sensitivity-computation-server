@@ -1,7 +1,9 @@
 package com.farao_community.farao.sensitivity.api;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powsybl.contingency.Contingency;
+import com.powsybl.contingency.json.ContingencyJsonModule;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.sensitivity.SensitivityFactorsProvider;
 
@@ -18,14 +20,13 @@ public class JsonSensitivityInputs {
 
     public static byte[] write(SensitivityFactorsProvider provider, Network network, List<Contingency> contingencies) {
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
             InternalSensitivityInputsProvider internalProvider = new InternalSensitivityInputsProvider(
                     provider.getCommonFactors(network),
                     provider.getAdditionalFactors(network),
                     contingencies.stream().collect(Collectors.toMap(Contingency::getId, co -> provider.getAdditionalFactors(network, co.getId()))),
                     contingencies
             );
-            return objectMapper.writeValueAsBytes(internalProvider);
+            return getObjectMapper().writeValueAsBytes(internalProvider);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -33,10 +34,13 @@ public class JsonSensitivityInputs {
 
     public static InternalSensitivityInputsProvider read(InputStream inputStream) {
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            return objectMapper.readValue(inputStream, InternalSensitivityInputsProvider.class);
+            return getObjectMapper().readValue(inputStream, InternalSensitivityInputsProvider.class);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static ObjectMapper getObjectMapper() {
+        return new ObjectMapper().registerModule(new ContingencyJsonModule());
     }
 }
