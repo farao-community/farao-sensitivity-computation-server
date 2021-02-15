@@ -7,14 +7,18 @@ hades2:
   debug: false
 
 hades2-default-parameters:
-  dcMode: true
-  balanceType: PROPORTIONAL_TO_GENERATION_P
   countriesToBalance: AL,AT,BA,BE,BG,CH,CZ,DE,ES,FR,GR,HR,HU,IT,ME,MK,NL,PL,PT,RO,RS,SI,SK,TR,UA
 
 hades2-default-sensitivity-parameters:
   computeInitialLoadflow: true
   computeSensitivityToPsts: true
-  computeSensitivityToInjections: true
+  computeSensitivityToInjections: false
   equationTypePst: ANGLE_SHIFT_EQ
-  resultsThreshold: -1
+  resultsThreshold: 0.2
   hubPtdf: -1
+
+load-flow-default-parameters:
+  voltageInitMode: DC_VALUES
+  transformerVoltageControlOn: false
+  dcMode: true
+  balanceType: PROPORTIONAL_TO_LOAD
