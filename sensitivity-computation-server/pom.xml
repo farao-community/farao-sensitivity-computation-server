@@ -22,7 +22,7 @@
                         <artifactId>jib-maven-plugin</artifactId>
                         <configuration>
                             <from>
-                                <image>farao/farao-computation-base:1.1.0</image>
+                                <image>farao/farao-computation-base:1.2.0</image>
                             </from>
                             <to>
                                 <image>farao/sensitivity-computation-server</image>
@@ -33,15 +33,6 @@
                                 <ports>
                                     <port>8080</port>
                                 </ports>
-                                <!--
-                                for user permission reasons, it is forced to use root user
-                                for running the spring boot app.
-                                -->
-                                <user>root</user>
-                                <volumes>
-                                    <volume>/root/sensitivity-computation-server</volume>
-                                </volumes>
-                                <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
                             </container>
                         </configuration>
                     </plugin>
