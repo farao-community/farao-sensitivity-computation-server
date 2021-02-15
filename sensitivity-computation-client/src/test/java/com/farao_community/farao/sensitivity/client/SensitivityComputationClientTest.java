@@ -6,15 +6,12 @@
  */
 package com.farao_community.farao.sensitivity.client;
 
-import com.powsybl.commons.config.PlatformConfig;
 import com.powsybl.contingency.BranchContingency;
-import com.powsybl.contingency.ContingenciesProvider;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.iidm.import_.Importers;
 import com.powsybl.iidm.network.Branch;
 import com.powsybl.iidm.network.Load;
 import com.powsybl.iidm.network.Network;
-import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.sensitivity.*;
 import com.powsybl.sensitivity.factors.BranchFlowPerInjectionIncrease;
 import com.powsybl.sensitivity.factors.functions.BranchFlow;
@@ -26,37 +23,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * @author Sebastien Murgey {@literal <sebastien.murgey@rte-france.com>}
  */
 class SensitivityComputationClientTest {
-    @Disabled
+    @Disabled("Functional test that cannot be run on CI")
     @Test
-    public void checkThatClientsWorkLocally() {
+    void checkThatClientsWorkLocally() {
         Network network = Importers.loadNetwork("20170215_0830_2d4_uc1.uct", getClass().getResourceAsStream("/20170215_0830_2d4_uc1.uct"));
-
-        ContingenciesProvider contingenciesProvider = networkInput -> networkInput.getBranchStream().map(branch -> new Contingency(branch.getId(), new BranchContingency(branch.getId()))).collect(Collectors.toList());
-
-        SensitivityAnalysisResult result = SensitivityAnalysis.find("SensitivityComputationClient").run(network, new mockProvider(), contingenciesProvider.getContingencies(network));
-
-        System.out.println(result.isOk());
-    }
-
-    public class mockProvider implements SensitivityFactorsProvider {
-        @Override
-        public List<SensitivityFactor> getFactors(Network network) {
+        SensitivityFactorsProvider sensitivityFactorsProvider = networkInput -> {
             List<SensitivityFactor> sensitivityFactors = new ArrayList<>();
-            for (Branch<?> branch : network.getBranches()) {
-                for (Load load : network.getLoads()) {
+            for (Branch<?> branch : networkInput.getBranches()) {
+                for (Load load : networkInput.getLoads()) {
                     sensitivityFactors.add(new BranchFlowPerInjectionIncrease(new BranchFlow(branch.getId(), branch.getId(), branch.getId()), new InjectionIncrease(load.getId(), load.getId(), load.getId())));
                 }
             }
             return sensitivityFactors;
-        }
+        };
+        List<Contingency> contingencies = network.getBranchStream().map(branch -> new Contingency(branch.getId(), new BranchContingency(branch.getId()))).collect(Collectors.toList());
 
-        @Override
-        public List<SensitivityFactor> getFactors(Network network, String s) {
-            return getFactors(network);
-        }
+        SensitivityAnalysisResult result = SensitivityAnalysis.find("SensitivityComputationClient").run(network, sensitivityFactorsProvider, contingencies);
+
+        assertTrue(result.isOk());
     }
 }

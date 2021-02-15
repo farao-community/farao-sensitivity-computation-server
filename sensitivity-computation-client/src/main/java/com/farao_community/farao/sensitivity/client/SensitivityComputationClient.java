@@ -6,18 +6,15 @@
  */
 package com.farao_community.farao.sensitivity.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.farao_community.farao.sensitivity.api.JsonSensitivityInputs;
 import com.google.auto.service.AutoService;
-import com.powsybl.commons.json.JsonUtil;
 import com.powsybl.computation.ComputationManager;
 import com.powsybl.contingency.Contingency;
-import com.powsybl.contingency.json.ContingencyJsonModule;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.xml.NetworkXml;
 import com.powsybl.sensitivity.*;
 import com.powsybl.sensitivity.json.JsonSensitivityAnalysisParameters;
 import com.powsybl.sensitivity.json.SensitivityAnalysisResultJsonSerializer;
-import com.powsybl.sensitivity.json.SensitivityFactorsJsonSerializer;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
@@ -104,8 +101,7 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
     private MultiValueMap<String, HttpEntity<?>> createBody(Network network, String workingStateId, SensitivityFactorsProvider factorsProvider, List<Contingency> contingencies, SensitivityAnalysisParameters sensiParameters) {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("networkFile", getNetworkBytes(network, workingStateId), MediaType.APPLICATION_XML).filename("network.xiidm");
-        builder.part("sensitivityFactorsFile", getFactorsBytes(network, factorsProvider), MediaType.APPLICATION_JSON).filename("sensitivityFactors.json");
-        builder.part("contingencyListFile", getContingenciesBytes(contingencies), MediaType.APPLICATION_JSON).filename("contingencyList.json");
+        builder.part("inputsFile", getInputsBytes(network, factorsProvider, contingencies), MediaType.APPLICATION_JSON).filename("inputs.json");
         builder.part("parametersFile", getParametersBytes(sensiParameters), MediaType.APPLICATION_JSON).filename("parameters.json");
         return builder.build();
     }
@@ -119,25 +115,8 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
         return baos.toByteArray();
     }
 
-    private byte[] getFactorsBytes(Network network, SensitivityFactorsProvider factorsProvider) {
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            Writer writer = new OutputStreamWriter(baos);
-            SensitivityFactorsJsonSerializer.write(factorsProvider.getFactors(network), writer);
-            return baos.toByteArray();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private byte[] getContingenciesBytes(List<Contingency> contingencies) {
-        try {
-            ObjectMapper mapper = JsonUtil.createObjectMapper();
-            mapper.registerModule(new ContingencyJsonModule());
-            return mapper.writeValueAsBytes(contingencies);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    private byte[] getInputsBytes(Network network, SensitivityFactorsProvider factorsProvider, List<Contingency> contingencies) {
+        return JsonSensitivityInputs.write(factorsProvider, network, contingencies);
     }
 
     private byte[] getParametersBytes(SensitivityAnalysisParameters sensiParameters) {

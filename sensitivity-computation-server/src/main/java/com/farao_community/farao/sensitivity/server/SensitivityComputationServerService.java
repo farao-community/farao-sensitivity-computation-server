@@ -6,11 +6,8 @@
  */
 package com.farao_community.farao.sensitivity.server;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.powsybl.contingency.ContingenciesProvider;
-import com.powsybl.contingency.Contingency;
-import com.powsybl.contingency.json.ContingencyJsonModule;
+import com.farao_community.farao.sensitivity.api.InternalSensitivityInputsProvider;
+import com.farao_community.farao.sensitivity.api.JsonSensitivityInputs;
 import com.powsybl.iidm.import_.Importers;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.sensitivity.*;
@@ -26,23 +23,22 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.*;
-import java.util.List;
 
 /**
  * @author Sebastien Murgey {@literal <sebastien.murgey@rte-france.com>}
  */
 @Service
 public class SensitivityComputationServerService {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(SensitivityComputationServerService.class);
 
-    public Flux<DataBuffer> runComputation(FilePart networkFile, FilePart sensitivityFactorsFile, FilePart contingencyListFile, FilePart parametersFile) {
+    public Flux<DataBuffer> runComputation(FilePart networkFile, FilePart inputsFile, FilePart parametersFile) {
         LOGGER.info("[start] sensitivity computation");
         Network network = importNetwork(networkFile);
-        SensitivityFactorsProvider sensitivityFactorsProvider = importSensitivityFactorsProvider(sensitivityFactorsFile);
-        ContingenciesProvider contingencies = importContingenciesProvider(contingencyListFile);
+        InternalSensitivityInputsProvider inputsProvider = importSensitivityInputsProvider(inputsFile);
         SensitivityAnalysisParameters parameters = importParameters(parametersFile);
 
-        SensitivityAnalysisResult result = SensitivityAnalysis.run(network, sensitivityFactorsProvider, contingencies.getContingencies(network), parameters);
+        SensitivityAnalysisResult result = SensitivityAnalysis.run(network, inputsProvider, inputsProvider.getContingencies(), parameters);
         LOGGER.info("[end] sensitivity computation");
         return turnToData(result);
     }
@@ -52,31 +48,9 @@ public class SensitivityComputationServerService {
                 .map(dataBuffer -> Importers.loadNetwork(networkFile.filename(), dataBuffer.asInputStream())).toFuture().join();
     }
 
-    private SensitivityFactorsProvider importSensitivityFactorsProvider(FilePart sensitivityFactorsFile) {
-        JsonSensitivityFactorsProviderFactory factory = new JsonSensitivityFactorsProviderFactory();
-        return DataBufferUtils.join(sensitivityFactorsFile.content())
-                .map(dataBuffer -> factory.create(dataBuffer.asInputStream())).toFuture().join();
-    }
-
-    private ContingenciesProvider importContingenciesProvider(FilePart contingencyListFile) {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new ContingencyJsonModule());
-        TypeReference<List<Contingency>> mapType = new TypeReference<List<Contingency>>() {};
-        List<Contingency> contingencyList = DataBufferUtils.join(contingencyListFile.content())
-                .map(dataBuffer -> {
-                    try {
-                        return mapper.readValue(dataBuffer.asInputStream(), mapType);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                })
-                .toFuture().join();
-        return new ContingenciesProvider() {
-            @Override
-            public List<Contingency> getContingencies(Network network) {
-                return contingencyList;
-            }
-        };
+    private InternalSensitivityInputsProvider importSensitivityInputsProvider(FilePart inputsFile) {
+        return DataBufferUtils.join(inputsFile.content())
+                .map(dataBuffer -> JsonSensitivityInputs.read(dataBuffer.asInputStream())).toFuture().join();
     }
 
     private SensitivityAnalysisParameters importParameters(FilePart parametersFile) {
