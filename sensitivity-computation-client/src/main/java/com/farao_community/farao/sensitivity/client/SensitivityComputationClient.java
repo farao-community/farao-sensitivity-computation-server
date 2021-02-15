@@ -6,19 +6,15 @@
  */
 package com.farao_community.farao.sensitivity.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.farao_community.farao.sensitivity.api.JsonSensitivityInputs;
 import com.google.auto.service.AutoService;
-import com.powsybl.commons.json.JsonUtil;
 import com.powsybl.computation.ComputationManager;
-import com.powsybl.contingency.ContingenciesProvider;
 import com.powsybl.contingency.Contingency;
-import com.powsybl.contingency.json.ContingencyJsonModule;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.xml.NetworkXml;
 import com.powsybl.sensitivity.*;
 import com.powsybl.sensitivity.json.JsonSensitivityAnalysisParameters;
 import com.powsybl.sensitivity.json.SensitivityAnalysisResultJsonSerializer;
-import com.powsybl.sensitivity.json.SensitivityFactorsJsonSerializer;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpEntity;
@@ -30,7 +26,6 @@ import reactor.core.publisher.Flux;
 
 import java.io.*;
 import java.net.URI;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -50,11 +45,11 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
     }
 
     @Override
-    public CompletableFuture<SensitivityAnalysisResult> run(Network network, String workingVariantId, SensitivityFactorsProvider factorsProvider, ContingenciesProvider contingenciesProvider, SensitivityAnalysisParameters sensiParameters, ComputationManager computationManager) {
+    public CompletableFuture<SensitivityAnalysisResult> run(Network network, String workingVariantId, SensitivityFactorsProvider factorsProvider, List<Contingency> contingencies, SensitivityAnalysisParameters sensiParameters, ComputationManager computationManager) {
         WebClient webClient = WebClient.create();
         Flux<DataBuffer> resultData = webClient.post()
                 .uri(getServerUri())
-                .bodyValue(createBody(network, workingVariantId, factorsProvider, contingenciesProvider, sensiParameters))
+                .bodyValue(createBody(network, workingVariantId, factorsProvider, contingencies, sensiParameters))
                 .retrieve()
                 .bodyToFlux(DataBuffer.class);
 
@@ -85,11 +80,10 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
                 .resolve("./api/v1/sensitivity-computation");
     }
 
-    private MultiValueMap<String, HttpEntity<?>> createBody(Network network, String workingStateId, SensitivityFactorsProvider factorsProvider, ContingenciesProvider contingenciesProvider, SensitivityAnalysisParameters sensiParameters) {
+    private MultiValueMap<String, HttpEntity<?>> createBody(Network network, String workingStateId, SensitivityFactorsProvider factorsProvider, List<Contingency> contingencies, SensitivityAnalysisParameters sensiParameters) {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("networkFile", getNetworkBytes(network, workingStateId), MediaType.APPLICATION_XML).filename("network.xiidm");
-        builder.part("sensitivityFactorsFile", getFactorsBytes(network, factorsProvider), MediaType.APPLICATION_JSON).filename("sensitivityFactors.json");
-        builder.part("contingencyListFile", getContingenciesBytes(network, contingenciesProvider), MediaType.APPLICATION_JSON).filename("contingencyList.json");
+        builder.part("inputsFile", getInputsBytes(network, factorsProvider, contingencies), MediaType.APPLICATION_JSON).filename("inputs.json");
         builder.part("parametersFile", getParametersBytes(sensiParameters), MediaType.APPLICATION_JSON).filename("parameters.json");
         return builder.build();
     }
@@ -103,26 +97,8 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
         return baos.toByteArray();
     }
 
-    private byte[] getFactorsBytes(Network network, SensitivityFactorsProvider factorsProvider) {
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            Writer writer = new OutputStreamWriter(baos);
-            SensitivityFactorsJsonSerializer.write(factorsProvider.getFactors(network), writer);
-            return baos.toByteArray();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private byte[] getContingenciesBytes(Network network, ContingenciesProvider contingenciesProvider) {
-        try {
-            List<Contingency> contingencies = contingenciesProvider == null ? Collections.emptyList() : contingenciesProvider.getContingencies(network);
-            ObjectMapper mapper = JsonUtil.createObjectMapper();
-            mapper.registerModule(new ContingencyJsonModule());
-            return mapper.writeValueAsBytes(contingencies);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    private byte[] getInputsBytes(Network network, SensitivityFactorsProvider factorsProvider, List<Contingency> contingencies) {
+        return JsonSensitivityInputs.write(factorsProvider, network, contingencies);
     }
 
     private byte[] getParametersBytes(SensitivityAnalysisParameters sensiParameters) {

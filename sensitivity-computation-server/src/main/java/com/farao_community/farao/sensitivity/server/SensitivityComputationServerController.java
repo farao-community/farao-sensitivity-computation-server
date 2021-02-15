@@ -29,9 +29,8 @@ public class SensitivityComputationServerController {
 
     @PostMapping
     public Mono<ResponseEntity<Flux<DataBuffer>>> runComputation(FilePart networkFile,
-                                                                 FilePart sensitivityFactorsFile,
-                                                                 FilePart contingencyListFile,
+                                                                 FilePart inputsFile,
                                                                  FilePart parametersFile) {
-        return Mono.just(ResponseEntity.ok(service.runComputation(networkFile, sensitivityFactorsFile, contingencyListFile, parametersFile)));
+        return Mono.just(ResponseEntity.ok(service.runComputation(networkFile, inputsFile, parametersFile)));
     }
 }
