@@ -7,6 +7,7 @@
 package com.farao_community.farao.sensitivity.client;
 
 import com.farao_community.farao.sensitivity.api.JsonSensitivityInputs;
+import com.farao_community.farao.sensitivity.api.JsonSensitivityOutputs;
 import com.google.auto.service.AutoService;
 import com.powsybl.computation.ComputationManager;
 import com.powsybl.contingency.Contingency;
@@ -14,7 +15,6 @@ import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.xml.NetworkXml;
 import com.powsybl.sensitivity.*;
 import com.powsybl.sensitivity.json.JsonSensitivityAnalysisParameters;
-import com.powsybl.sensitivity.json.SensitivityAnalysisResultJsonSerializer;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @AutoService(SensitivityAnalysisProvider.class)
 public class SensitivityComputationClient implements SensitivityAnalysisProvider {
+
     private final SensitivityComputationClientConfig config;
 
     public SensitivityComputationClient() {
@@ -53,14 +54,16 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
 
     @Override
     public CompletableFuture<SensitivityAnalysisResult> run(Network network, String workingVariantId, SensitivityFactorsProvider factorsProvider, List<Contingency> contingencies, SensitivityAnalysisParameters sensiParameters, ComputationManager computationManager) {
-        TcpClient timeoutClient = TcpClient.create()
+        TcpClient timeoutClient = TcpClient.newConnection()
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getTimeOutInSeconds()*1000)
+            .option(ChannelOption.SO_KEEPALIVE, false)
+            .option(ChannelOption.SO_REUSEADDR, false)
             .doOnConnected(
                 c -> c.addHandlerLast(new ReadTimeoutHandler(config.getTimeOutInSeconds()*1000))
                     .addHandlerLast(new WriteTimeoutHandler(config.getTimeOutInSeconds()*1000)));
 
         WebClient webClient = WebClient.builder()
-            .clientConnector(new ReactorClientHttpConnector(HttpClient.from(timeoutClient)))
+            .clientConnector(new ReactorClientHttpConnector(HttpClient.from(timeoutClient).keepAlive(false)))
             .build();
 
         //WebClient webClient = WebClient.create();
@@ -71,7 +74,7 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
                 .bodyToFlux(DataBuffer.class)
                 .timeout(Duration.ofMillis(config.getTimeOutInSeconds()*1000));
 
-        return CompletableFuture.completedFuture(parseResults(resultData));
+        return CompletableFuture.completedFuture(parseResults(resultData, factorsProvider, network));
     }
 
     @Override
@@ -84,10 +87,10 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
         return "1.0.0";
     }
 
-    private SensitivityAnalysisResult parseResults(Flux<DataBuffer> resultData) {
+    private SensitivityAnalysisResult parseResults(Flux<DataBuffer> resultData, SensitivityFactorsProvider factorsProvider, Network network) {
         try {
             Reader reader = new InputStreamReader(DataBufferUtils.join(resultData).block().asInputStream());
-            return SensitivityAnalysisResultJsonSerializer.read(reader);
+            return JsonSensitivityOutputs.read(reader, factorsProvider, network);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

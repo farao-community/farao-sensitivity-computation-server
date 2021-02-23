@@ -8,6 +8,8 @@ package com.farao_community.farao.sensitivity.server;
 
 import com.farao_community.farao.sensitivity.api.InternalSensitivityInputsProvider;
 import com.farao_community.farao.sensitivity.api.JsonSensitivityInputs;
+import com.farao_community.farao.sensitivity.api.JsonSensitivityOutputs;
+import com.powsybl.contingency.Contingency;
 import com.powsybl.iidm.import_.Importers;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.sensitivity.*;
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.*;
+import java.util.List;
 
 /**
  * @author Sebastien Murgey {@literal <sebastien.murgey@rte-france.com>}
@@ -38,7 +41,7 @@ public class SensitivityComputationServerService {
         InternalSensitivityInputsProvider inputsProvider = importSensitivityInputsProvider(inputsFile);
         SensitivityAnalysisParameters parameters = importParameters(parametersFile);
 
-        SensitivityAnalysisResult result = SensitivityAnalysis.run(network, inputsProvider, inputsProvider.getContingencies(), parameters);
+        SensitivityAnalysisResult result = SensitivityAnalysis.run(network, inputsProvider, (List<Contingency>) inputsProvider.getContingencies(), parameters);
         LOGGER.info("[end] sensitivity computation");
         return turnToData(result);
     }
@@ -61,7 +64,7 @@ public class SensitivityComputationServerService {
     private Flux<DataBuffer> turnToData(SensitivityAnalysisResult sensitivityComputationResults) {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         Writer writer = new OutputStreamWriter(byteArrayOutputStream);
-        SensitivityAnalysisResultExporters.export(sensitivityComputationResults, writer, "JSON");
+        JsonSensitivityOutputs.write(sensitivityComputationResults, writer);
         return DataBufferUtils.readInputStream(() -> new ByteArrayInputStream(byteArrayOutputStream.toByteArray()), new DefaultDataBufferFactory(), 1024);
     }
 }

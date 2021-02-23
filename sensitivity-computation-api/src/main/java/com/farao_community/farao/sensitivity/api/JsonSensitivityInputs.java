@@ -25,20 +25,25 @@ import com.powsybl.sensitivity.factors.functions.BranchIntensity;
 import com.powsybl.sensitivity.factors.variables.InjectionIncrease;
 import com.powsybl.sensitivity.factors.variables.LinearGlsk;
 import com.powsybl.sensitivity.factors.variables.PhaseTapChangerAngle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class JsonSensitivityInputs {
+    private static final Logger LOGGER = LoggerFactory.getLogger(JsonSensitivityInputs.class);
     private JsonSensitivityInputs() {
         throw new AssertionError("Utility class should not be implemented");
     }
 
     public static byte[] write(SensitivityFactorsProvider provider, Network network, List<Contingency> contingencies) {
+        LOGGER.debug("starting writing input");
         Map<String, SensitivityVariable> sensitivityVariableMap = new LinkedHashMap<>();
         Map<String, SensitivityFunction> sensitivityFunctionMap = new LinkedHashMap<>();
-        Map<Contingency, Set<String>> sensitivityFunctionStringMap = new LinkedHashMap<>();
+        Map<String, Contingency> contingencyMap = new LinkedHashMap<>();
+        Map<String, Set<String>> sensitivityFunctionStringMap = new LinkedHashMap<>();
         for (Contingency contingency : contingencies) {
             String contingencyId = contingency.getId();
             Set<String> sensitivityFunctionsString = new LinkedHashSet<>();
@@ -48,7 +53,8 @@ public class JsonSensitivityInputs {
                 sensitivityVariableMap.put(sensitivityFactor.getVariable().getId(), sensitivityFactor.getVariable());
                 sensitivityFunctionMap.put(sensitivityFactor.getFunction().getId(), sensitivityFactor.getFunction());
             }
-            sensitivityFunctionStringMap.put(contingency, sensitivityFunctionsString);
+            sensitivityFunctionStringMap.put(contingencyId, sensitivityFunctionsString);
+            contingencyMap.put(contingencyId, contingency);
         }
 
         List<SensitivityFactor> basecaseSensitivities = provider.getAdditionalFactors(network);
@@ -63,17 +69,21 @@ public class JsonSensitivityInputs {
         try {
             Writer writer = new StringWriter();
             ObjectMapper mapper = getObjectMapper();
+            mapper.registerModule(new ContingencyJsonModule());
             ObjectWriter objectWriter = mapper.writerWithDefaultPrettyPrinter();
             JsonGenerator jsonGenerator = mapper.getFactory().createGenerator(writer);
 
             jsonGenerator.writeStartArray();
             objectWriter.forType(new TypeReference<Map<String, SensitivityFunction>>() { }).writeValue(jsonGenerator, sensitivityFunctionMap);
             objectWriter.forType(new TypeReference<Map<String, SensitivityVariable>>() { }).writeValue(jsonGenerator, sensitivityVariableMap);
+            objectWriter.forType(new TypeReference<Map<String, Contingency>>() { }).writeValue(jsonGenerator, contingencyMap);
             objectWriter.forType(new TypeReference<Set<String>>() { }).writeValue(jsonGenerator, basecaseSensitivityFunctions);
-            objectWriter.forType(new TypeReference<Map<Contingency, Set<String>>>() { }).writeValue(jsonGenerator, sensitivityFunctionStringMap);
+            objectWriter.forType(new TypeReference<Map<String, Set<String>>>() { }).writeValue(jsonGenerator, sensitivityFunctionStringMap);
             jsonGenerator.writeEndArray();
             jsonGenerator.close();
 
+            LOGGER.debug("input written");
+            writer.close();
             return writer.toString().getBytes("UTF-8");
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -83,19 +93,24 @@ public class JsonSensitivityInputs {
     public static InternalSensitivityInputsProvider read(InputStream inputStream) {
         Objects.requireNonNull(inputStream);
         ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new ContingencyJsonModule());
         try {
             JsonParser jsonParser = mapper.getFactory().createParser(inputStream);
 
             JsonToken jsonToken;
             jsonToken = jsonParser.nextToken();
-            jsonToken = jsonParser.nextToken();
 
+            jsonToken = jsonParser.nextToken();
             Map<String, SensitivityFunction> sensitivityFunctionMap = mapper
                 .readValue(jsonParser, new TypeReference<LinkedHashMap<String, SensitivityFunction>>() { });
 
             jsonToken = jsonParser.nextToken();
             Map<String, SensitivityVariable> sensitivityVariableMap = mapper
                 .readValue(jsonParser, new TypeReference<LinkedHashMap<String, SensitivityVariable>>() { });
+
+            jsonToken = jsonParser.nextToken();
+            Map<String, Contingency> contingencyMap = mapper
+                .readValue(jsonParser, new TypeReference<LinkedHashMap<String, Contingency>>() { });
 
             jsonToken = jsonParser.nextToken();
             Set<String> basecaseSensitivityFunctions = mapper
@@ -109,13 +124,14 @@ public class JsonSensitivityInputs {
             }
 
             jsonToken = jsonParser.nextToken();
-            Map<Contingency, Set<String>> sensitivityFunctionStringMap = mapper
-                .readValue(jsonParser, new TypeReference<LinkedHashMap<Contingency, Set<String>>>() { });
+            Map<String, Set<String>> sensitivityFunctionStringMap = mapper
+                .readValue(jsonParser, new TypeReference<LinkedHashMap<String, Set<String>>>() { });
             jsonParser.close();
+            inputStream.close();
 
             Map<String, List<SensitivityFactor>> sensitivityFactorsMap = new HashMap<>();
-            for (Contingency contingency : sensitivityFunctionStringMap.keySet()) {
-                String contingencyId = contingency.getId();
+            for (String contingencyId : sensitivityFunctionStringMap.keySet()) {
+                Contingency contingency = contingencyMap.get("contingencyId");
                 List<SensitivityFactor> sensitivityFactors = new ArrayList<>();
                 for (String sensitivityFunctionString : sensitivityFunctionStringMap.get(contingencyId)) {
                     SensitivityFunction function = sensitivityFunctionMap.get(sensitivityFunctionString);
@@ -126,7 +142,7 @@ public class JsonSensitivityInputs {
                 sensitivityFactorsMap.put(contingencyId, sensitivityFactors);
             }
 
-            return new InternalSensitivityInputsProvider(new ArrayList<>(), basecaseSensitivityFactors, sensitivityFactorsMap, sensitivityFunctionStringMap.keySet().stream().collect(Collectors.toList()));
+            return new InternalSensitivityInputsProvider(new ArrayList<>(), basecaseSensitivityFactors, sensitivityFactorsMap, contingencyMap.values().stream().collect(Collectors.toList()));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
