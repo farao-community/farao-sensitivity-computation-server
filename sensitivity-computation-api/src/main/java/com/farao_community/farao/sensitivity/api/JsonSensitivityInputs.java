@@ -39,14 +39,14 @@ public class JsonSensitivityInputs {
     }
 
     public static byte[] write(SensitivityFactorsProvider provider, Network network, List<Contingency> contingencies) {
-        LOGGER.debug("starting writing input");
-        Map<String, SensitivityVariable> sensitivityVariableMap = new LinkedHashMap<>();
-        Map<String, SensitivityFunction> sensitivityFunctionMap = new LinkedHashMap<>();
-        Map<String, Contingency> contingencyMap = new LinkedHashMap<>();
-        Map<String, Set<String>> sensitivityFunctionStringMap = new LinkedHashMap<>();
+        LOGGER.debug("starting creating input");
+        Map<String, SensitivityVariable> sensitivityVariableMap = new HashMap<>();
+        Map<String, SensitivityFunction> sensitivityFunctionMap = new HashMap<>();
+        Map<String, Contingency> contingencyMap = new HashMap<>();
+        Map<String, Set<String>> sensitivityFunctionStringMap = new HashMap<>();
         for (Contingency contingency : contingencies) {
             String contingencyId = contingency.getId();
-            Set<String> sensitivityFunctionsString = new LinkedHashSet<>();
+            Set<String> sensitivityFunctionsString = new HashSet<>();
             List<SensitivityFactor> sensitivities = provider.getAdditionalFactors(network, contingencyId);
             for (SensitivityFactor sensitivityFactor : sensitivities) {
                 sensitivityFunctionsString.add(sensitivityFactor.getFunction().getId());
@@ -58,7 +58,7 @@ public class JsonSensitivityInputs {
         }
 
         List<SensitivityFactor> basecaseSensitivities = provider.getAdditionalFactors(network);
-        Set<String> basecaseSensitivityFunctions = new LinkedHashSet<>();
+        Set<String> basecaseSensitivityFunctions = new HashSet<>();
         for (SensitivityFactor sensitivityFactor : basecaseSensitivities) {
             basecaseSensitivityFunctions.add(sensitivityFactor.getFunction().getId());
             sensitivityVariableMap.put(sensitivityFactor.getVariable().getId(), sensitivityFactor.getVariable());
@@ -131,7 +131,6 @@ public class JsonSensitivityInputs {
 
             Map<String, List<SensitivityFactor>> sensitivityFactorsMap = new HashMap<>();
             for (String contingencyId : sensitivityFunctionStringMap.keySet()) {
-                Contingency contingency = contingencyMap.get("contingencyId");
                 List<SensitivityFactor> sensitivityFactors = new ArrayList<>();
                 for (String sensitivityFunctionString : sensitivityFunctionStringMap.get(contingencyId)) {
                     SensitivityFunction function = sensitivityFunctionMap.get(sensitivityFunctionString);

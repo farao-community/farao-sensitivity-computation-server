@@ -66,7 +66,7 @@ public class JsonSensitivityOutputs {
     }
 
     public static SensitivityAnalysisResult read(Reader reader, SensitivityFactorsProvider factorsProvider, Network network) throws IOException {
-        LOGGER.debug("starting writing output");
+        LOGGER.debug("starting reading output");
         ObjectMapper mapper = new ObjectMapper();
         try {
             JsonParser jsonParser = mapper.getFactory().createParser(reader);
@@ -142,7 +142,7 @@ public class JsonSensitivityOutputs {
             }
             reader.close();
             jsonParser.close();
-            LOGGER.debug("ouput written");
+            LOGGER.debug("ouput read");
             return new SensitivityAnalysisResult(ok, metrics, logs, baseCaseSensiValues, allContingencySensiValues);
         } catch (IOException e) {
             throw new UncheckedIOException(e);

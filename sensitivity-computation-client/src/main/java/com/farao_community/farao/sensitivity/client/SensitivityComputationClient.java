@@ -74,7 +74,10 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
                 .bodyToFlux(DataBuffer.class)
                 .timeout(Duration.ofMillis(config.getTimeOutInSeconds()*1000));
 
-        return CompletableFuture.completedFuture(parseResults(resultData, factorsProvider, network));
+        CompletableFuture<SensitivityAnalysisResult> result = CompletableFuture.completedFuture(parseResults(resultData, factorsProvider, network));
+
+        webClient.delete();
+        return result;
     }
 
     @Override
