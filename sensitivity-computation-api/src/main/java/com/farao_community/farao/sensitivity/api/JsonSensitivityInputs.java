@@ -2,13 +2,10 @@ package com.farao_community.farao.sensitivity.api;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.powsybl.commons.PowsyblException;
-import com.powsybl.commons.json.JsonUtil;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.contingency.json.ContingencyJsonModule;
 import com.powsybl.iidm.network.Network;
@@ -30,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class JsonSensitivityInputs {
     private static final Logger LOGGER = LoggerFactory.getLogger(JsonSensitivityInputs.class);
@@ -65,7 +61,6 @@ public class JsonSensitivityInputs {
             sensitivityFunctionMap.put(sensitivityFactor.getFunction().getId(), sensitivityFactor.getFunction());
         }
 
-
         try {
             Writer writer = new StringWriter();
             ObjectMapper mapper = getObjectMapper();
@@ -83,8 +78,9 @@ public class JsonSensitivityInputs {
             jsonGenerator.close();
 
             LOGGER.debug("input written");
+            byte[] result = writer.toString().getBytes("UTF-8");
             writer.close();
-            return writer.toString().getBytes("UTF-8");
+            return result;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -97,22 +93,21 @@ public class JsonSensitivityInputs {
         try {
             JsonParser jsonParser = mapper.getFactory().createParser(inputStream);
 
-            JsonToken jsonToken;
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
 
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
             Map<String, SensitivityFunction> sensitivityFunctionMap = mapper
                 .readValue(jsonParser, new TypeReference<LinkedHashMap<String, SensitivityFunction>>() { });
 
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
             Map<String, SensitivityVariable> sensitivityVariableMap = mapper
                 .readValue(jsonParser, new TypeReference<LinkedHashMap<String, SensitivityVariable>>() { });
 
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
             Map<String, Contingency> contingencyMap = mapper
                 .readValue(jsonParser, new TypeReference<LinkedHashMap<String, Contingency>>() { });
 
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
             Set<String> basecaseSensitivityFunctions = mapper
                 .readValue(jsonParser, new TypeReference<>() { });
             List<SensitivityFactor> basecaseSensitivityFactors = new ArrayList<>();
@@ -123,25 +118,25 @@ public class JsonSensitivityInputs {
                 }
             }
 
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
             Map<String, Set<String>> sensitivityFunctionStringMap = mapper
                 .readValue(jsonParser, new TypeReference<LinkedHashMap<String, Set<String>>>() { });
             jsonParser.close();
             inputStream.close();
 
             Map<String, List<SensitivityFactor>> sensitivityFactorsMap = new HashMap<>();
-            for (String contingencyId : sensitivityFunctionStringMap.keySet()) {
+            for (Map.Entry<String, Set<String>> entry : sensitivityFunctionStringMap.entrySet()) {
                 List<SensitivityFactor> sensitivityFactors = new ArrayList<>();
-                for (String sensitivityFunctionString : sensitivityFunctionStringMap.get(contingencyId)) {
+                for (String sensitivityFunctionString : entry.getValue()) {
                     SensitivityFunction function = sensitivityFunctionMap.get(sensitivityFunctionString);
                     for (SensitivityVariable variable : sensitivityVariableMap.values()) {
                         sensitivityFactors.add(makeSensitivityFactor(function, variable));
                     }
                 }
-                sensitivityFactorsMap.put(contingencyId, sensitivityFactors);
+                sensitivityFactorsMap.put(entry.getKey(), sensitivityFactors);
             }
 
-            return new InternalSensitivityInputsProvider(new ArrayList<>(), basecaseSensitivityFactors, sensitivityFactorsMap, contingencyMap.values().stream().collect(Collectors.toList()));
+            return new InternalSensitivityInputsProvider(new ArrayList<>(), basecaseSensitivityFactors, sensitivityFactorsMap, new ArrayList<>(contingencyMap.values()));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -156,10 +151,8 @@ public class JsonSensitivityInputs {
             } else if (variable instanceof InjectionIncrease) {
                 return new BranchFlowPerInjectionIncrease((BranchFlow) function, (InjectionIncrease) variable);
             }
-        } else if (function instanceof BranchIntensity) {
-            if (variable instanceof PhaseTapChangerAngle) {
-                return new BranchIntensityPerPSTAngle((BranchIntensity) function, (PhaseTapChangerAngle) variable);
-            }
+        } else if ((function instanceof BranchIntensity) && (variable instanceof PhaseTapChangerAngle)) {
+            return new BranchIntensityPerPSTAngle((BranchIntensity) function, (PhaseTapChangerAngle) variable);
         }
         throw new PowsyblException("Unable to parse JsonSensitivityFactorProvider: unrecognizable sensitivity factor");
     }

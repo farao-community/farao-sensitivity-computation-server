@@ -13,7 +13,10 @@ import com.powsybl.computation.ComputationManager;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.xml.NetworkXml;
-import com.powsybl.sensitivity.*;
+import com.powsybl.sensitivity.SensitivityAnalysisParameters;
+import com.powsybl.sensitivity.SensitivityAnalysisProvider;
+import com.powsybl.sensitivity.SensitivityAnalysisResult;
+import com.powsybl.sensitivity.SensitivityFactorsProvider;
 import com.powsybl.sensitivity.json.JsonSensitivityAnalysisParameters;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
@@ -41,7 +44,6 @@ import java.util.concurrent.CompletableFuture;
  */
 @AutoService(SensitivityAnalysisProvider.class)
 public class SensitivityComputationClient implements SensitivityAnalysisProvider {
-
     private final SensitivityComputationClientConfig config;
 
     public SensitivityComputationClient() {
@@ -92,7 +94,10 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
 
     private SensitivityAnalysisResult parseResults(Flux<DataBuffer> resultData, SensitivityFactorsProvider factorsProvider, Network network) {
         try {
-            Reader reader = new InputStreamReader(DataBufferUtils.join(resultData).block().asInputStream());
+            PipedOutputStream osPipe = new PipedOutputStream();
+            PipedInputStream isPipe = new PipedInputStream(osPipe);
+            DataBufferUtils.write(resultData, osPipe).subscribe(DataBufferUtils.releaseConsumer());
+            Reader reader = new InputStreamReader(isPipe);
             return JsonSensitivityOutputs.read(reader, factorsProvider, network);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
