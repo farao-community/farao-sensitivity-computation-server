@@ -16,6 +16,8 @@ import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.util.*;
 
+import static com.farao_community.farao.sensitivity.api.JsonSensitivityUtil.getSuffix;
+
 public class JsonSensitivityOutputs {
     private static final Logger LOGGER = LoggerFactory.getLogger(JsonSensitivityOutputs.class);
     public static void write(SensitivityAnalysisResult sensitivityComputationResults, Writer writer) {
@@ -32,7 +34,7 @@ public class JsonSensitivityOutputs {
             jsonGenerator.writeStartArray();
             for (SensitivityValue sensitivityValue : sensitivityComputationResults.getSensitivityValues()) {
                 jsonGenerator.writeStartObject();
-                jsonGenerator.writeStringField("fun", sensitivityValue.getFactor().getFunction().getId());
+                jsonGenerator.writeStringField("fun", sensitivityValue.getFactor().getFunction().getId() + getSuffix(sensitivityValue.getFactor().getFunction()));
                 jsonGenerator.writeStringField("var", sensitivityValue.getFactor().getVariable().getId());
                 jsonGenerator.writeNumberField("value", sensitivityValue.getValue());
                 jsonGenerator.writeNumberField("funRef", sensitivityValue.getFunctionReference());
@@ -49,7 +51,7 @@ public class JsonSensitivityOutputs {
                 jsonGenerator.writeStartArray();
                 for (SensitivityValue sensitivityValue : coValMap.get(coId)) {
                     jsonGenerator.writeStartObject();
-                    jsonGenerator.writeStringField("fun", sensitivityValue.getFactor().getFunction().getId());
+                    jsonGenerator.writeStringField("fun", sensitivityValue.getFactor().getFunction().getId() + getSuffix(sensitivityValue.getFactor().getFunction()));
                     jsonGenerator.writeStringField("var", sensitivityValue.getFactor().getVariable().getId());
                     jsonGenerator.writeNumberField("value", sensitivityValue.getValue());
                     jsonGenerator.writeNumberField("funRef", sensitivityValue.getFunctionReference());
@@ -108,7 +110,7 @@ public class JsonSensitivityOutputs {
             List<SensitivityValue> baseCaseSensiValues = new LinkedList<>();
             List<SensitivityFactor> factors = factorsProvider.getAdditionalFactors(network);
             for(SensitivityFactor factor : factors) {
-                Map<String, Double> sensiRes = reorganizedSensis.get(factor.getFunction().getId()).get(factor.getVariable().getId());
+                Map<String, Double> sensiRes = reorganizedSensis.get(factor.getFunction().getId() + getSuffix(factor.getFunction())).get(factor.getVariable().getId());
                 baseCaseSensiValues.add(new SensitivityValue(factor, sensiRes.get("value"), sensiRes.get("funRef"), sensiRes.get("varRef")));
             }
 
@@ -135,7 +137,7 @@ public class JsonSensitivityOutputs {
                 List<SensitivityValue> contingencySensiValues = new LinkedList<>();
                 factors = factorsProvider.getAdditionalFactors(network, coId);
                 for(SensitivityFactor factor : factors) {
-                    Map<String, Double> sensiRes = reorganizedSensis.get(factor.getFunction().getId()).get(factor.getVariable().getId());
+                    Map<String, Double> sensiRes = reorganizedSensis.get(factor.getFunction().getId() + getSuffix(factor.getFunction())).get(factor.getVariable().getId());
                     contingencySensiValues.add(new SensitivityValue(factor, sensiRes.get("value"), sensiRes.get("funRef"), sensiRes.get("varRef")));
                 }
                 allContingencySensiValues.put(coId, contingencySensiValues);

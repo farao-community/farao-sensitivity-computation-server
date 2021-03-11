@@ -28,6 +28,8 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.util.*;
 
+import static com.farao_community.farao.sensitivity.api.JsonSensitivityUtil.getSuffix;
+
 public class JsonSensitivityInputs {
     private static final Logger LOGGER = LoggerFactory.getLogger(JsonSensitivityInputs.class);
     private JsonSensitivityInputs() {
@@ -45,9 +47,9 @@ public class JsonSensitivityInputs {
             Set<String> sensitivityFunctionsString = new HashSet<>();
             List<SensitivityFactor> sensitivities = provider.getAdditionalFactors(network, contingencyId);
             for (SensitivityFactor sensitivityFactor : sensitivities) {
-                sensitivityFunctionsString.add(sensitivityFactor.getFunction().getId());
+                sensitivityFunctionsString.add(sensitivityFactor.getFunction().getId() + getSuffix(sensitivityFactor.getFunction()));
                 sensitivityVariableMap.put(sensitivityFactor.getVariable().getId(), sensitivityFactor.getVariable());
-                sensitivityFunctionMap.put(sensitivityFactor.getFunction().getId(), sensitivityFactor.getFunction());
+                sensitivityFunctionMap.put(sensitivityFactor.getFunction().getId() + getSuffix(sensitivityFactor.getFunction()), sensitivityFactor.getFunction());
             }
             sensitivityFunctionStringMap.put(contingencyId, sensitivityFunctionsString);
             contingencyMap.put(contingencyId, contingency);
@@ -56,9 +58,9 @@ public class JsonSensitivityInputs {
         List<SensitivityFactor> basecaseSensitivities = provider.getAdditionalFactors(network);
         Set<String> basecaseSensitivityFunctions = new HashSet<>();
         for (SensitivityFactor sensitivityFactor : basecaseSensitivities) {
-            basecaseSensitivityFunctions.add(sensitivityFactor.getFunction().getId());
+            basecaseSensitivityFunctions.add(sensitivityFactor.getFunction().getId() + getSuffix(sensitivityFactor.getFunction()));
             sensitivityVariableMap.put(sensitivityFactor.getVariable().getId(), sensitivityFactor.getVariable());
-            sensitivityFunctionMap.put(sensitivityFactor.getFunction().getId(), sensitivityFactor.getFunction());
+            sensitivityFunctionMap.put(sensitivityFactor.getFunction().getId() + getSuffix(sensitivityFactor.getFunction()), sensitivityFactor.getFunction());
         }
 
         try {
