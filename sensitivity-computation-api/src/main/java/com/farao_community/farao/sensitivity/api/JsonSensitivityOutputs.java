@@ -43,6 +43,7 @@ public class JsonSensitivityOutputs {
             }
             jsonGenerator.writeEndArray();
 
+
             Map<String, List<SensitivityValue>> coValMap = sensitivityComputationResults.getSensitivityValuesContingencies();
             jsonGenerator.writeFieldName("contingencyValues");
             jsonGenerator.writeStartObject();

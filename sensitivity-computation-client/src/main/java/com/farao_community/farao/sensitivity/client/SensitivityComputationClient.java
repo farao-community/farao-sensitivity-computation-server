@@ -76,7 +76,7 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
                 .retrieve()
                 .bodyToFlux(DataBuffer.class)
                 .timeout(Duration.ofMillis(config.getTimeOutInSeconds()*1000));
-
+        String stringgg = new BufferedReader(new InputStreamReader(DataBufferUtils.join(resultData).block().asInputStream())).lines().collect(Collectors.joining("\n"));
         CompletableFuture<SensitivityAnalysisResult> result = CompletableFuture.completedFuture(parseResults(resultData, factorsProvider, network));
 
         webClient.delete();

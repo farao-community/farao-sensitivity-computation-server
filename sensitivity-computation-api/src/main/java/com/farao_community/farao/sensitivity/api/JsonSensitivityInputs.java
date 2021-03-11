@@ -116,7 +116,10 @@ public class JsonSensitivityInputs {
             for (String sensitivityFunctionString : basecaseSensitivityFunctions) {
                 SensitivityFunction function = sensitivityFunctionMap.get(sensitivityFunctionString);
                 for (SensitivityVariable variable : sensitivityVariableMap.values()) {
-                    basecaseSensitivityFactors.add(makeSensitivityFactor(function, variable));
+                    SensitivityFactor sensitivityFactor = makeSensitivityFactor(function, variable);
+                    if (Objects.nonNull(sensitivityFactor)) {
+                        basecaseSensitivityFactors.add(sensitivityFactor);
+                    }
                 }
             }
 
@@ -132,7 +135,10 @@ public class JsonSensitivityInputs {
                 for (String sensitivityFunctionString : entry.getValue()) {
                     SensitivityFunction function = sensitivityFunctionMap.get(sensitivityFunctionString);
                     for (SensitivityVariable variable : sensitivityVariableMap.values()) {
-                        sensitivityFactors.add(makeSensitivityFactor(function, variable));
+                        SensitivityFactor sensitivityFactor = makeSensitivityFactor(function, variable);
+                        if (Objects.nonNull(sensitivityFactor)) {
+                            sensitivityFactors.add(sensitivityFactor);
+                        }
                     }
                 }
                 sensitivityFactorsMap.put(entry.getKey(), sensitivityFactors);
@@ -154,9 +160,11 @@ public class JsonSensitivityInputs {
                 return new BranchFlowPerInjectionIncrease((BranchFlow) function, (InjectionIncrease) variable);
             }
         } else if ((function instanceof BranchIntensity) && (variable instanceof PhaseTapChangerAngle)) {
-            return new BranchIntensityPerPSTAngle((BranchIntensity) function, (PhaseTapChangerAngle) variable);
+            if (variable instanceof PhaseTapChangerAngle) {
+               return new BranchIntensityPerPSTAngle((BranchIntensity) function, (PhaseTapChangerAngle) variable);
+            }
         }
-        throw new PowsyblException("Unable to parse JsonSensitivityFactorProvider: unrecognizable sensitivity factor");
+        return null;
     }
 
     private static ObjectMapper getObjectMapper() {
