@@ -40,7 +40,6 @@ public class SensitivityComputationServerService {
         Network network = importNetwork(networkFile);
         InternalSensitivityInputsProvider inputsProvider = importSensitivityInputsProvider(inputsFile);
         SensitivityAnalysisParameters parameters = importParameters(parametersFile);
-
         SensitivityAnalysisResult result = SensitivityAnalysis.run(network, inputsProvider, (List<Contingency>) inputsProvider.getContingencies(), parameters);
         LOGGER.info("[end] sensitivity computation");
         return turnToData(result);
@@ -63,7 +62,12 @@ public class SensitivityComputationServerService {
 
     private Flux<DataBuffer> turnToData(SensitivityAnalysisResult sensitivityComputationResults) {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        Writer writer = new OutputStreamWriter(byteArrayOutputStream);
+        Writer writer = null;
+        try {
+            writer = new OutputStreamWriter(byteArrayOutputStream, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
         JsonSensitivityOutputs.write(sensitivityComputationResults, writer);
         return DataBufferUtils.readInputStream(() -> new ByteArrayInputStream(byteArrayOutputStream.toByteArray()), new DefaultDataBufferFactory(), 1024);
     }

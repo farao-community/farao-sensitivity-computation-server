@@ -19,7 +19,6 @@ import java.util.*;
 import static com.farao_community.farao.sensitivity.api.JsonSensitivityUtil.getSuffix;
 
 public class JsonSensitivityOutputs {
-    private static final Logger LOGGER = LoggerFactory.getLogger(JsonSensitivityOutputs.class);
     public static void write(SensitivityAnalysisResult sensitivityComputationResults, Writer writer) {
 
         try {
@@ -69,30 +68,28 @@ public class JsonSensitivityOutputs {
     }
 
     public static SensitivityAnalysisResult read(Reader reader, SensitivityFactorsProvider factorsProvider, Network network) throws IOException {
-        LOGGER.debug("starting reading output");
         ObjectMapper mapper = new ObjectMapper();
         try {
             JsonParser jsonParser = mapper.getFactory().createParser(reader);
 
-            JsonToken jsonToken;
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
 
-            jsonToken = jsonParser.nextToken();
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
+            jsonParser.nextToken();
             boolean ok = mapper.readValue(jsonParser, Boolean.TYPE);
 
-            jsonToken = jsonParser.nextToken();
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
+            jsonParser.nextToken();
             Map<String, String> metrics = mapper.readValue(jsonParser, new TypeReference<>() {
             });
 
-            jsonToken = jsonParser.nextToken();
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
+            jsonParser.nextToken();
             String logs = mapper.readValue(jsonParser, new TypeReference<>() {
             });
 
-            jsonToken = jsonParser.nextToken();
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
+            jsonParser.nextToken();
             Set<Map<String, String>> baseCaseSensisSet  = mapper
                 .readValue(jsonParser, new TypeReference<>() { });
             Map<String, Map<String, Map<String, Double>>> reorganizedSensis = new HashMap<>();
@@ -115,8 +112,8 @@ public class JsonSensitivityOutputs {
                 baseCaseSensiValues.add(new SensitivityValue(factor, sensiRes.get("value"), sensiRes.get("funRef"), sensiRes.get("varRef")));
             }
 
-            jsonToken = jsonParser.nextToken();
-            jsonToken = jsonParser.nextToken();
+            jsonParser.nextToken();
+            jsonParser.nextToken();
             Map<String, Set<Map<String, String>>> allContingencySensisMap  = mapper
                 .readValue(jsonParser, new TypeReference<>() { });
             Map<String, List<SensitivityValue>> allContingencySensiValues = new HashMap<>();
@@ -145,7 +142,6 @@ public class JsonSensitivityOutputs {
             }
             reader.close();
             jsonParser.close();
-            LOGGER.debug("ouput read");
             return new SensitivityAnalysisResult(ok, metrics, logs, baseCaseSensiValues, allContingencySensiValues);
         } catch (IOException e) {
             throw new UncheckedIOException(e);

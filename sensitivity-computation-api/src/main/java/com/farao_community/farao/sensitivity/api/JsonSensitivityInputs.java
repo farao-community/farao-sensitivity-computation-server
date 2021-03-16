@@ -31,13 +31,11 @@ import java.util.*;
 import static com.farao_community.farao.sensitivity.api.JsonSensitivityUtil.getSuffix;
 
 public class JsonSensitivityInputs {
-    private static final Logger LOGGER = LoggerFactory.getLogger(JsonSensitivityInputs.class);
     private JsonSensitivityInputs() {
         throw new AssertionError("Utility class should not be implemented");
     }
 
     public static byte[] write(SensitivityFactorsProvider provider, Network network, List<Contingency> contingencies) {
-        LOGGER.debug("starting creating input");
         Map<String, SensitivityVariable> sensitivityVariableMap = new HashMap<>();
         Map<String, SensitivityFunction> sensitivityFunctionMap = new HashMap<>();
         Map<String, Contingency> contingencyMap = new HashMap<>();
@@ -79,7 +77,6 @@ public class JsonSensitivityInputs {
             jsonGenerator.writeEndArray();
             jsonGenerator.close();
 
-            LOGGER.debug("input written");
             byte[] result = writer.toString().getBytes("UTF-8");
             writer.close();
             return result;
@@ -93,7 +90,7 @@ public class JsonSensitivityInputs {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new ContingencyJsonModule());
         try {
-            JsonParser jsonParser = mapper.getFactory().createParser(inputStream);
+            JsonParser jsonParser = mapper.getFactory().createParser(new InputStreamReader(inputStream,"UTF-8"));
 
             jsonParser.nextToken();
 

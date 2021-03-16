@@ -76,7 +76,7 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
                 .retrieve()
                 .bodyToFlux(DataBuffer.class)
                 .timeout(Duration.ofMillis(config.getTimeOutInSeconds()*1000));
-        String stringgg = new BufferedReader(new InputStreamReader(DataBufferUtils.join(resultData).block().asInputStream())).lines().collect(Collectors.joining("\n"));
+
         CompletableFuture<SensitivityAnalysisResult> result = CompletableFuture.completedFuture(parseResults(resultData, factorsProvider, network));
 
         webClient.delete();
@@ -98,7 +98,7 @@ public class SensitivityComputationClient implements SensitivityAnalysisProvider
             PipedOutputStream osPipe = new PipedOutputStream();
             PipedInputStream isPipe = new PipedInputStream(osPipe);
             DataBufferUtils.write(resultData, osPipe).subscribe(DataBufferUtils.releaseConsumer());
-            Reader reader = new InputStreamReader(isPipe);
+            Reader reader = new InputStreamReader(isPipe, "UTF-8");
             return JsonSensitivityOutputs.read(reader, factorsProvider, network);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
