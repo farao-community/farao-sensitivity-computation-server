@@ -21,19 +21,19 @@ public class InternalSensitivityInputsProvider implements SensitivityFactorsProv
     private final List<SensitivityFactor> commonFactors;
     @JsonProperty("basecaseAdditionalFactors")
     private final List<SensitivityFactor> basecaseAdditionalFactors;
-    @JsonProperty("contingenciesAdditionalParameters")
-    private final Map<String, List<SensitivityFactor>> contingenciesAdditionalParameters;
+    @JsonProperty("contingenciesAdditionalFactors")
+    private final Map<String, List<SensitivityFactor>> contingenciesAdditionalFactors;
     @JsonProperty("contingencies")
     private final List<Contingency> contingencies;
 
     @JsonCreator
     public InternalSensitivityInputsProvider(@JsonProperty("commonFactors") List<SensitivityFactor> commonFactors,
                                              @JsonProperty("basecaseAdditionalFactors") List<SensitivityFactor> basecaseAdditionalFactors,
-                                             @JsonProperty("contingenciesAdditionalParameters") Map<String, List<SensitivityFactor>> contingenciesAdditionalParameters,
+                                             @JsonProperty("contingenciesAdditionalFactors") Map<String, List<SensitivityFactor>> contingenciesAdditionalParameters,
                                              @JsonProperty("contingencies") List<Contingency> contingencies) {
         this.commonFactors = commonFactors;
         this.basecaseAdditionalFactors = basecaseAdditionalFactors;
-        this.contingenciesAdditionalParameters = contingenciesAdditionalParameters;
+        this.contingenciesAdditionalFactors = contingenciesAdditionalParameters;
         this.contingencies = contingencies;
     }
 
@@ -53,6 +53,6 @@ public class InternalSensitivityInputsProvider implements SensitivityFactorsProv
 
     @Override
     public List<SensitivityFactor> getAdditionalFactors(Network network, String contingencyId) {
-        return contingenciesAdditionalParameters.get(contingencyId);
+        return contingenciesAdditionalFactors.get(contingencyId);
     }
 }
